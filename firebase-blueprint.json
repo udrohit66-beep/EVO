@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and evolved AI state.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "evolvedTraits": { 
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Traits the AI has learned about this user (e.g., 'Likes concise replies', 'Enthusiastic about space')."
+        },
+        "emotionalState": {
+          "type": "object",
+          "properties": {
+            "heat": { "type": "number", "description": "Intensity of interaction (0-1)" },
+            "connectivity": { "type": "number", "description": "Degree of empathy/rapport (0-1)" },
+            "alertness": { "type": "number", "description": "Cognitive focus (0-1)" },
+            "dominantEmotion": { "type": "string" }
+          }
+        },
+        "personalityProfile": {
+          "type": "string",
+          "description": "A descriptive summary of how the AI has adapted to the user."
+        },
+        "totalInteractions": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A conversation thread.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "userId", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "An individual message in a chat.",
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string" },
+        "chatId": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "ai"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["messageId", "chatId", "sender", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "chats/{chatId}": {
+      "schema": "Chat",
+      "description": "Metadata for a chat session."
+    },
+    "chats/{chatId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a specific chat."
+    }
+  }
+}

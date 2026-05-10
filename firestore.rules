@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      
+      function isValidUser(data) {
+        return data.keys().hasAll(['userId', 'createdAt']) &&
+          data.userId == userId &&
+          data.createdAt == (resource == null ? request.time : resource.data.createdAt) &&
+          (!('email' in data) || (data.email is string && data.email.size() <= 256)) &&
+          (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+          (!('evolvedTraits' in data) || (data.evolvedTraits is list && data.evolvedTraits.size() <= 50)) &&
+          (!('emotionalState' in data) || data.emotionalState is map) &&
+          (!('personalityProfile' in data) || (data.personalityProfile is string && data.personalityProfile.size() <= 2000)) &&
+          (!('totalInteractions' in data) || data.totalInteractions is int);
+      }
+    }
+
+    // --- Chats ---
+    match /chats/{chatId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid &&
+        isValidChat(request.resource.data);
+      allow update: if isSignedIn() && 
+        resource.data.userId == request.auth.uid && 
+        request.resource.data.userId == request.auth.uid &&
+        isValidChat(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      function isValidChat(data) {
+        return data.keys().hasAll(['chatId', 'userId', 'createdAt', 'updatedAt']) &&
+          data.chatId == chatId &&
+          data.userId == request.auth.uid &&
+          data.createdAt == (resource == null ? request.time : resource.data.createdAt) &&
+          data.updatedAt == request.time &&
+          (!('title' in data) || (data.title is string && data.title.size() <= 256)) &&
+          (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 1000));
+      }
+
+      // --- Messages ---
+      match /messages/{messageId} {
+        allow list: if isSignedIn() && get(/databases/$(database)/documents/chats/$(chatId)).data.userId == request.auth.uid;
+        allow create: if isSignedIn() && 
+          get(/databases/$(database)/documents/chats/$(chatId)).data.userId == request.auth.uid &&
+          isValidMessage(request.resource.data);
+
+        function isValidMessage(data) {
+          return data.keys().hasAll(['messageId', 'chatId', 'sender', 'content', 'timestamp']) &&
+            data.messageId == messageId &&
+            data.chatId == chatId &&
+            data.sender in ['user', 'ai'] &&
+            data.content is string &&
+            data.content.size() <= 10000 &&
+            data.timestamp == request.time;
+        }
+      }
+    }
+  }
+}
